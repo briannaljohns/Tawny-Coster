@@ -9,10 +9,11 @@ library(stringr)
 library(ggplot2)
 library(janitor)
 library(sp)
+library(patchwork)
 
+###### CREATE MAP
 # Load occurence data
-occ <- read_csv("tawny-coster-records-2026-02-05.csv", show_col_types = FALSE) %>% clean_names()
-analysis_df <- read_csv("trait_grid_summary_speciesbased.csv", show_col_types = FALSE)
+analysis_df <- read_csv("grid_summary_speciesbased.csv", show_col_types = FALSE)
 
 ### Use a standard CRS (metres), avoids km/metre confusion
 crs_proj <- 20353  # EPSG:20353 (UTM zone 53, metres)
@@ -30,21 +31,10 @@ countries_utm <- ne_countries(
 #check that it is the correct country
 plot(countries_utm)
 
-#convert lat-long to UTM
-to_utm <- function(df) {
-  st_as_sf(df, coords = c("decimal_longitude", "decimal_latitude"), crs = 4326) %>%
-    st_transform(crs_proj)
-}
-
-tc_utm <- occ %>% to_utm()
-
-inside_region <- function(x) x[st_within(x, countries_utm, sparse = FALSE), ]
-tc_utm <- inside_region(tc_utm)
-
 # Build the grid from the countries
 grid <- st_make_grid(
   st_as_sfc(st_bbox(countries_utm)),
-  cellsize = 10000,
+  cellsize = 25000, # 25 x 25 km grid
   square = TRUE
 ) %>%
   st_sf(grid_id = seq_along(.))
@@ -53,52 +43,112 @@ grid <- st_make_grid(
 grid <- grid[lengths(st_intersects(grid, countries_utm)) > 0, ] %>%
   mutate(grid_id = row_number())
 
+###### CREATE SIDE BY SIDE HEAT MAPS FOR BOTH SPECIES
 # Presence distribution
-grid_presence <- analysis_df %>%
-  dplyr::select(grid_id, source, n_species) %>%
-  distinct() %>%
-  mutate(presence = as.integer(n_species > 0)) %>%
-  dplyr::select(-n_species) %>%
-  pivot_wider(names_from = source, values_from = presence, values_fill = 0)
-
-# Add presence column to grid
 grid_map_plot <- grid %>%
-  left_join(
-    dplyr::select(analysis_df, grid_id, n_species),
-    by = "grid_id"
-  ) %>%
+  left_join(analysis_df, by = "grid_id") %>%
   mutate(
-    n_species = replace_na(n_species, 0),          # replace NA with 0
-    presence = n_species > 0                       # TRUE if species present
+    `Acraea andromacha` = replace_na(`Acraea andromacha`, 0),
+    `Acraea terpsicore` = replace_na(`Acraea terpsicore`, 0)
   )
 
 # Bounding box for cropping
 bb <- st_bbox(countries_utm)
 
-# Plot all grids
-ggplot() +
-  geom_sf(data = countries_utm, fill = NA, colour = "grey80", linewidth = 0.2) +
-  geom_sf(
-    data = grid_map_plot,
-    aes(fill = n_species),
-    colour = "white",     # grid borders
-    linewidth = 0.1
-  ) +
-  scale_fill_gradient(
-    low = "grey90",       # empty grids
-    high = "steelblue",   # grids with more species
-    name = "Species count"
-  ) +
-  coord_sf(
-    xlim = c(bb["xmin"], bb["xmax"]),
-    ylim = c(bb["ymin"], bb["ymax"]),
-    expand = FALSE
-  ) +
-  theme_classic() +
-  theme(
-    panel.grid = element_blank(),
-    axis.text = element_blank(),
-    axis.ticks = element_blank(),
-    axis.line = element_blank()
-  ) +
-  labs(x = NULL, y = NULL)
+# Plot heatmap
+# Function to plot heatmap per species
+plot_species_heatmap <- function(species_col, species_name) {
+  ggplot() +
+    geom_sf(data = countries_utm, fill = NA, colour = "grey80", linewidth = 0.2) +
+    geom_sf(
+      data = grid_map_plot,
+      aes(fill = !!sym(species_col)),
+      colour = "white",
+      linewidth = 0.1
+    ) +
+    scale_fill_viridis_c(
+      trans = "log10",
+      na.value = "grey90",
+      name = paste("Records of", species_name)
+    ) +
+    coord_sf(
+      xlim = c(bb["xmin"], bb["xmax"]),
+      ylim = c(bb["ymin"], bb["ymax"]),
+      expand = FALSE
+    ) +
+    theme_classic() +
+    theme(
+      panel.grid = element_blank(),
+      axis.text = element_blank(),
+      axis.ticks = element_blank(),
+      axis.line = element_blank()
+    ) +
+    labs(x = NULL, y = NULL)
+}
+
+# Plot Acraea andromacha
+plot_species_heatmap("Acraea andromacha", "Acraea andromacha")
+
+# Plot Acraea terpsicore
+plot_species_heatmap("Acraea terpsicore", "Acraea terpsicore")
+
+#Plot side by side
+g_andromacha <- plot_species_heatmap("Acraea andromacha", "Acraea andromacha")
+g_terpsicore <- plot_species_heatmap("Acraea terpsicore", "Acraea terpsicore")
+
+combined_vertical_map <- g_andromacha + g_terpsicore +
+  plot_layout(ncol = 1, guides = "collect")  # ncol = 1 → vertical, guides = "collect" → shared legend
+
+combined_vertical_map
+
+ggsave(
+  "combined_species_heatmap_vertical.png",
+  combined_vertical_map,
+  width = 8,   # adjust width/height as needed
+  height = 12, 
+  dpi = 1200
+)
+###### CREATE ONE MAP OF SPECIES PRESENCE
+grid_map_plot <- grid_map_plot %>%
+  mutate(
+    presence_category = case_when(
+      `Acraea andromacha` > 0 & `Acraea terpsicore` > 0 ~ "Both species",
+      `Acraea andromacha` > 0 & `Acraea terpsicore` == 0 ~ "Only A. andromacha",
+      `Acraea andromacha` == 0 & `Acraea terpsicore` > 0 ~ "Only A. terpsicore",
+      TRUE ~ "Neither species"
+    )
+  )
+
+species_presence_map <- ggplot() +
+    geom_sf(data = countries_utm, fill = NA, colour = "grey80", linewidth = 0.2) +
+    geom_sf(
+      data = grid_map_plot,
+      aes(fill = presence_category),
+      colour = "white",
+      linewidth = 0.1
+    ) +
+    scale_fill_manual(
+      values = c(
+        "Both species" = "purple",
+        "Only A. andromacha" = "orange",
+        "Only A. terpsicore" = "blue",
+        "Neither species" = "grey90"
+      ),
+      name = "Species present"
+    ) +
+    coord_sf(
+      xlim = c(bb["xmin"], bb["xmax"]),
+      ylim = c(bb["ymin"], bb["ymax"]),
+      expand = FALSE
+    ) +
+    theme_classic() +
+    theme(
+      panel.grid = element_blank(),
+      axis.text = element_blank(),
+      axis.ticks = element_blank(),
+      axis.line = element_blank()
+    ) +
+    labs(x = NULL, y = NULL)
+
+species_presence_map
+ggsave("species_presence_map.png", species_presence_map, width = 12, height = 6, dpi = 300)
