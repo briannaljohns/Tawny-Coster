@@ -151,4 +151,6 @@ species_presence_map <- ggplot() +
     labs(x = NULL, y = NULL)
 
 species_presence_map
-ggsave("species_presence_map.png", species_presence_map, width = 12, height = 6, dpi = 300)
+ggsave("species_presence_map.pdf", species_presence_map, width = 12, height = 6, dpi = 300)
+
+
