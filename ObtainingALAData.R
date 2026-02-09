@@ -14,10 +14,10 @@ search_fields("country") %>% show_values()
 
 # records for Acraea terpsicore and Acraea Andromacha species in Australia since 2020 - 2026 grouped by year and basis of record
 search_taxa("Acraea terpsicore")
-search_taxa("Acraea Andromacha")
+search_taxa("Passiflora foetida")
 
 ATAA_occurence_data<-galah_call() %>% 
-  galah_identify("Acraea terpsicore","Acraea Andromacha") %>% 
+  galah_identify("Acraea terpsicore","Passiflora foetida") %>% 
   galah_filter(
     year>2020,
     country=="Australia"
@@ -29,11 +29,11 @@ ATAA_occurence_data<-galah_call() %>%
 ATAA_clean <- ATAA_occurence_data %>%
   mutate(
     scientificName = case_when(
-      str_detect(scientificName, "^Acraea andromacha") ~ "Acraea andromacha",
+      str_detect(scientificName, "^Passiflora foetida") ~ "Passiflora foetida",
       str_detect(scientificName, "^Acraea terpsicore") ~ "Acraea terpsicore",
       TRUE ~ scientificName
     )
   )
 
-write.csv(ATAA_clean, file = "ATAA_occ.csv")
+write.csv(ATAA_clean, file = "ATPF_occ.csv")
 

@@ -8,7 +8,7 @@ library(janitor)
 ##############################
 # Cleaning ALA data
 
-ala_data <- data.table::fread("ATAA_occ.csv")
+ala_data <- data.table::fread("ATPF_occ.csv")
 colnames(ala_data)
 
 # Removing blank cells
@@ -25,7 +25,7 @@ ala_data <- ala_data[!(is.na(ala_data$dataResourceName) | ala_data$dataResourceN
 # Removing duplicated records
 ala_data <- ala_data[!duplicated(ala_data),]
 
-write_csv(ala_data, "cleanedRecords_ala.csv")
+write_csv(ala_data, "cleanedRecordsATPF_ala.csv")
 
 # Cleaning memory
 rm(ala_data)
@@ -33,7 +33,7 @@ rm(ala_data)
 ##############################
 # Filter data frame
 
-occ_raw <- read_csv("cleanedRecords_ala.csv")
+occ_raw <- read_csv("cleanedRecordsATPF_ala.csv")
 
 # Convert to sf + filter to region
 crs_proj <- "EPSG:20353"  # UTM zone 53, metres)
@@ -82,11 +82,11 @@ n_records_species_wide <- n_records_species %>%
   ) %>%
   rowwise() %>%
   mutate(
-    n_species = sum(c_across(`Acraea terpsicore`:`Acraea andromacha`) > 0)  # species present
+    n_species = sum(c_across(`Acraea terpsicore`:`Passiflora foetida`) > 0)  # species present
   ) %>%
   ungroup()
 
 # Export data
-write_csv(n_records_species_wide, "grid_summary_speciesbased.csv")
+write_csv(n_records_species_wide, "grid_summary_speciesbasedATPF.csv")
 
 ## Citation
