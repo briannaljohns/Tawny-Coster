@@ -13,7 +13,7 @@ library(patchwork)
 
 ###### CREATE MAP
 # Load occurence data
-analysis_df <- read_csv("grid_summary_speciesbasedATPF.csv", show_col_types = FALSE)
+analysis_df <- read_csv("grid_summary_speciesbasedATPFPE.csv", show_col_types = FALSE)
 
 ### Use a standard CRS (metres), avoids km/metre confusion
 crs_proj <- 20353  # EPSG:20353 (UTM zone 53, metres)
@@ -49,7 +49,8 @@ grid_map_plot <- grid %>%
   left_join(analysis_df, by = "grid_id") %>%
   mutate(
     `Passiflora foetida` = replace_na(`Passiflora foetida`, 0),
-    `Acraea terpsicore` = replace_na(`Acraea terpsicore`, 0)
+    `Acraea terpsicore` = replace_na(`Acraea terpsicore`, 0),
+    `Passiflora edulis` = replace_na(`Passiflora edulis`, 0),
   )
 
 # Bounding box for cropping
@@ -92,11 +93,14 @@ plot_species_heatmap("Passiflora foetida", "Passiflora foetida")
 # Plot Acraea terpsicore
 plot_species_heatmap("Acraea terpsicore", "Acraea terpsicore")
 
-#Plot side by side
-g_andromacha <- plot_species_heatmap("Passiflora foetida", "Passiflora foetida")
-g_terpsicore <- plot_species_heatmap("Acraea terpsicore", "Acraea terpsicore")
+plot_species_heatmap("Passiflora edulis","Passiflora edulis")
 
-combined_vertical_map <- g_andromacha + g_terpsicore +
+#Plot side by side
+g_foetida <- plot_species_heatmap("Passiflora foetida", "Passiflora foetida")
+g_terpsicore <- plot_species_heatmap("Acraea terpsicore", "Acraea terpsicore")
+g_edulis <- plot_species_heatmap("Passiflora edulis","Passiflora edulis")
+
+combined_vertical_map <- g_foetida + g_terpsicore + g_edulis
   plot_layout(ncol = 1, guides = "collect")  # ncol = 1 → vertical, guides = "collect" → shared legend
 
 combined_vertical_map
@@ -112,9 +116,10 @@ ggsave(
 grid_map_plot <- grid_map_plot %>%
   mutate(
     presence_category = case_when(
-      `Passiflora foetida` > 0 & `Acraea terpsicore` > 0 ~ "Both species",
-      `Passiflora foetida` > 0 & `Acraea terpsicore` == 0 ~ "Only Passiflora foetida",
-      `Passiflora foetida` == 0 & `Acraea terpsicore` > 0 ~ "Only Acraea terpsicore",
+      `Passiflora foetida` > 0 & `Passiflora edulis` == 0 & `Acraea terpsicore` > 0 ~ "A. terpsicore and P. foetida species present",
+      `Passiflora foetida` == 0 & `Passiflora edulis` > 0 & `Acraea terpsicore` > 0 ~  "A. terpsicore and P. edulis species present",
+      `Passiflora foetida` > 0 & `Acraea terpsicore` > 0 & `Passiflora edulis` > 0 ~ "All species present",
+      `Passiflora foetida` > 0 & `Acraea terpsicore` == 0 & `Passiflora edulis` > 0 ~ "Only host plants present",
       TRUE ~ "Neither species"
     )
   )
@@ -129,9 +134,10 @@ species_presence_map <- ggplot() +
     ) +
     scale_fill_manual(
       values = c(
-        "Both species" = "purple",
-        "Only Passiflora foetida" = "orange",
-        "Only Acraea terpsicore" = "blue",
+        "A. terpsicore and P. foetida species present" = "purple",
+        "A. terpsicore and P. edulis species present" = "orange",
+        "All species present" = "blue",
+        "Only host plants present" = "green",
         "Neither species" = "grey90"
       ),
       name = "Species present"
@@ -151,6 +157,6 @@ species_presence_map <- ggplot() +
     labs(x = NULL, y = NULL)
 
 species_presence_map
-ggsave("species_presence_mapATPF.pdf", species_presence_map, width = 12, height = 6, dpi = 1200)
+ggsave("species_presence_mapATPFPE.pdf", species_presence_map, width = 12, height = 6, dpi = 1200)
 
 
