@@ -1,4 +1,3 @@
-# Load libraries
 library(tidyverse)
 library(sf)
 library(terra)
@@ -8,7 +7,9 @@ library(janitor)
 ##############################
 # Cleaning ALA data
 
-ala_data <- data.table::fread("ATAAhostplants_occ.csv")
+ala_data <- data.table::fread("AAATpassifloraceae_occ.csv")
+
+#check column names
 colnames(ala_data)
 
 # Removing blank cells
@@ -22,10 +23,20 @@ ala_data <- ala_data[!(is.na(ala_data$decimalLatitude) | ala_data$decimalLatitud
 ala_data <- ala_data[!(is.na(ala_data$occurrenceStatus) | ala_data$occurrenceStatus == ""),]
 ala_data <- ala_data[!(is.na(ala_data$dataResourceName) | ala_data$dataResourceName == ""),]
 
-# Removing duplicated records
+# Removing duplicated records 
 ala_data <- ala_data[!duplicated(ala_data),]
 
-write_csv(ala_data, "cleanedRecordsATAAhostplants_ala.csv")
+#create new group with passiflora family, tawny coster and glasswing as values
+
+ala_data <- ala_data %>%
+  mutate(group = case_when(
+    scientificName %in% c("Acraea terpsicore", "Acraea andromacha") ~ scientificName,
+    grepl("Passiflora", scientificName) ~ "Passifloraceae",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(group))
+
+write_csv(ala_data, "AAATpassifloraceae_ala.csv")
 
 # Cleaning memory
 rm(ala_data)
@@ -33,24 +44,24 @@ rm(ala_data)
 ##############################
 # Filter data frame
 
-occ_raw <- read_csv("cleanedRecordsATAAhostplants_ala.csv")
+occ_raw <- read_csv("AAATpassifloraceae_ala.csv")
 
-# Convert to sf + filter to region
+# Convert to sf + filter to region ; have map include states
 crs_proj <- "EPSG:20353"  # UTM zone 53, metres)
 
 occ_sf <- st_as_sf(occ_raw, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326, remove = FALSE) %>%
   st_transform(crs_proj)
 
-countries <- ne_countries(
-  scale = "large",
-  country = ("Australia"),
+countries <- ne_states(
+  country = "Australia",
   returnclass = "sf"
 ) %>%
   st_transform(crs_proj) %>%
-  st_union() %>%
   st_sf()
 
-occ_sf <- occ_sf[st_within(occ_sf, countries, sparse = FALSE), ]
+plot(countries["geometry"])
+
+occ_sf <- st_filter(occ_sf, countries)
 
 # Create 25 × 25 km grid over the region
 grid <- st_make_grid(
@@ -71,22 +82,22 @@ occ_grid <- st_join(occ_sf, grid, join = st_within) %>%
 # Build grid × species (species-weighted)
 n_records_species <- occ_grid %>%
   st_drop_geometry() %>%
-  group_by(grid_id, scientificName) %>%
+  group_by(grid_id, group) %>%
   summarise(n_records = n(), .groups = "drop")
 
 n_records_species_wide <- n_records_species %>%
   pivot_wider(
-    names_from  = scientificName,
+    names_from  = group,
     values_from = n_records,
     values_fill = 0  # grids with no records for a species get 0
   ) %>%
   rowwise() %>%
   mutate(
-    n_species = sum(c("Acraea terpsicore","Acraea andromacha","Afrohybanthus enneaspermus","Adenia heterophylla") > 0)  # species present
+    n_species = sum(c("Acraea terpsicore","Acraea andromacha","Passifloraceae") > 0)  # species present
   ) %>%
   ungroup()
 
 # Export data
-write_csv(n_records_species_wide, "grid_summary_speciesbasedATAAhostplants.csv")
+write_csv(n_records_species_wide, "grid_summary_speciesbasedAAATpassifloraceae.csv")
 
 ## Citation

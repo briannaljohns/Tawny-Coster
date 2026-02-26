@@ -1,4 +1,3 @@
-# Load libraries
 library(dplyr)
 library(tidyr)
 library(tidyverse)
@@ -13,23 +12,21 @@ library(patchwork)
 
 ###### CREATE MAP
 # Load occurence data
-analysis_df <- read_csv("grid_summary_speciesbasedATAAhostplants.csv", show_col_types = FALSE)
+analysis_df <- read_csv("grid_summary_speciesbasedAAATpassifloraceae.csv", show_col_types = FALSE)
 
 ### Use a standard CRS (metres), avoids km/metre confusion
 crs_proj <- 20353  # EPSG:20353 (UTM zone 53, metres)
 
-# Get polygon (Australia only) and transform to UTM
-countries_utm <- ne_countries(
-  scale = "large",
-  country = ("Australia"),
+# Get polygon (Australian states only) and transform to UTM
+countries_utm <- ne_states(
+  country = "Australia",
   returnclass = "sf"
 ) %>%
   st_transform(crs_proj) %>%
-  st_union() %>%
   st_sf()
 
-#check that it is the correct country
-plot(countries_utm)
+#check that it is the correct map
+plot(countries_utm["geometry"])
 
 # Build the grid from the countries
 grid <- st_make_grid(
@@ -50,8 +47,7 @@ grid_map_plot <- grid %>%
   mutate(
     `Acraea andromacha` = replace_na(`Acraea andromacha`, 0),
     `Acraea terpsicore` = replace_na(`Acraea terpsicore`, 0),
-    `Afrohybanthus enneaspermus` = replace_na(`Afrohybanthus enneaspermus`, 0),
-    `Adenia heterophylla` = replace_na(`Adenia heterophylla`, 0),
+    `Passifloraceae` = replace_na(`Passifloraceae`, 0),
   )
 
 # Bounding box for cropping
@@ -61,48 +57,55 @@ bb <- st_bbox(countries_utm)
 grid_map_plot <- grid_map_plot %>%
   mutate(
     presence_category = case_when(
-      `Adenia heterophylla` > 0 & `Afrohybanthus enneaspermus` > 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` > 0 ~"All species present",
-      `Adenia heterophylla` > 0 & `Afrohybanthus enneaspermus` == 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` > 0 ~ "A. heterophylla and both butterflies present",
-      `Adenia heterophylla` == 0 & `Afrohybanthus enneaspermus` > 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` > 0 ~ "A. enneaspermus and both butterflies present",
-      `Adenia heterophylla` > 0 & `Afrohybanthus enneaspermus` > 0 & `Acraea andromacha` == 0 & `Acraea terpsicore` == 0 ~"Only host plants present",
+      `Passifloraceae` > 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` > 0 ~"All species present",
+      `Passifloraceae` == 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` > 0 ~ "both butterflies present and host plant absent",
+      `Passifloraceae` > 0 & `Acraea andromacha` == 0 & `Acraea terpsicore` > 0 ~ "host plant and A. terpsicore present",
+      `Passifloraceae` > 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` == 0 ~ "host plant and A. andromacha present",
+      `Passifloraceae` > 0 & `Acraea andromacha` == 0 & `Acraea terpsicore` == 0 ~"Only host plants present",
       TRUE ~ "None of the species present"
     )
   )
 
 species_presence_map <- ggplot() +
-    geom_sf(data = countries_utm, fill = NA, colour = "grey80", linewidth = 0.2) +
-    geom_sf(
-      data = grid_map_plot,
-      aes(fill = presence_category),
-      colour = "white",
-      linewidth = 0.1
-    ) +
-    scale_fill_manual(
-      values = c(
-        "A. heterophylla and both butterflies present" = "purple",
-        "A. enneaspermus and both butterflies present" = "orange",
-        "All species present" = "blue",
-        "Only host plants present" = "green",
-        "None of the species present" = "grey90"
-      ),
-      name = "Species present"
-    ) +
-    coord_sf(
-      xlim = c(bb["xmin"], bb["xmax"]),
-      ylim = c(bb["ymin"], bb["ymax"]),
-      expand = FALSE
-    ) +
-    theme_classic() +
-    theme(
-      panel.grid = element_blank(),
-      axis.text = element_blank(),
-      axis.ticks = element_blank(),
-      axis.line = element_blank()
-    ) +
-    labs(x = NULL, y = NULL)
+  geom_sf(
+    data = grid_map_plot,
+    aes(fill = presence_category),
+    colour = "white",
+    linewidth = 0.1
+  ) +
+  geom_sf(
+    data = countries_utm,
+    fill = NA,
+    colour = "black",
+    linewidth = 0.5
+  ) +
+  scale_fill_manual(
+    values = c(
+      "host plant and A. terpsicore present" = "purple",
+      "host plant and A. andromacha present" = "orange",
+      "both butterflies present and host plant absent" = "red", 
+      "All species present" = "blue",
+      "Only host plants present" = "green",
+      "None of the species present" = "grey90"
+    ),
+    name = "Species present"
+  ) +
+  coord_sf(
+    xlim = c(bb["xmin"], bb["xmax"]),
+    ylim = c(bb["ymin"], bb["ymax"]),
+    expand = FALSE
+  ) +
+  theme_classic() +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_blank()
+  ) +
+  labs(x = NULL, y = NULL)
 
 species_presence_map
-ggsave("species_presence_mapATAAhostplants.pdf", species_presence_map, width = 12, height = 6, dpi = 1200)
+ggsave("mainmap.pdf", species_presence_map, width = 12, height = 6, dpi = 1200)
 
 # # Plot heatmap
 # # Function to plot heatmap per species
