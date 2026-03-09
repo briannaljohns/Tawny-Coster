@@ -7,7 +7,7 @@ library(janitor)
 ##############################
 # Cleaning ALA data
 
-ala_data <- data.table::fread("output/allocc.csv")
+ala_data <- data.table::fread("output/tcocc.csv")
 
 #check column names
 colnames(ala_data)
@@ -26,17 +26,16 @@ ala_data <- ala_data[!(is.na(ala_data$dataResourceName) | ala_data$dataResourceN
 # Removing duplicated records 
 ala_data <- ala_data[!duplicated(ala_data),]
 
-#create new group with passiflora family, tawny coster and glasswing as values
+# create new group 
 
 ala_data <- ala_data %>%
   mutate(group = case_when(
-    scientificName %in% c("Acraea terpsicore", "Acraea andromacha") ~ scientificName,
-    grepl("Passiflora", scientificName) ~ "Passifloraceae",
+    scientificName %in% c("Acraea terpsicore") ~ scientificName,
     TRUE ~ NA_character_
   )) %>%
   filter(!is.na(group))
 
-write_csv(ala_data, "output/cleaned_allocc.csv")
+write_csv(ala_data, "output/cleaned_tcocc.csv")
 
 # Cleaning memory
 rm(ala_data)
@@ -44,7 +43,7 @@ rm(ala_data)
 ##############################
 # Filter data frame
 
-occ_raw <- read_csv("output/cleaned_allocc.csv")
+occ_raw <- read_csv("output/cleaned_tcocc.csv")
 
 # Convert to sf + filter to region ; have map include states
 crs_proj <- "EPSG:20353"  # UTM zone 53, metres)
@@ -93,9 +92,9 @@ n_records_species_wide <- n_records_species %>%
   ) %>%
   rowwise() %>%
   mutate(
-    n_species = sum(c("Acraea terpsicore","Acraea andromacha","Passifloraceae") > 0)  # species present
+    n_species = sum(c(`Acraea terpsicore`) > 0)  # count species present
   ) %>%
-  ungroup()
-
+  ungroup() 
+  
 # Export data
-write_csv(n_records_species_wide, "output/gridsummary.csv")
+write_csv(n_records_species_wide, "output/gridsummarytc.csv")

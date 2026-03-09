@@ -12,7 +12,7 @@ library(patchwork)
 
 ###### CREATE MAP
 # Load occurence data
-analysis_df <- read_csv("output/gridsummary.csv", show_col_types = FALSE)
+analysis_df <- read_csv("output/gridsummarytc.csv", show_col_types = FALSE)
 
 ### Use a standard CRS (metres), avoids km/metre confusion
 crs_proj <- 20353  # EPSG:20353 (UTM zone 53, metres)
@@ -45,9 +45,7 @@ grid <- grid[lengths(st_intersects(grid, countries_utm)) > 0, ] %>%
 grid_map_plot <- grid %>%
   left_join(analysis_df, by = "grid_id") %>%
   mutate(
-    `Acraea andromacha` = replace_na(`Acraea andromacha`, 0),
     `Acraea terpsicore` = replace_na(`Acraea terpsicore`, 0),
-    `Passifloraceae` = replace_na(`Passifloraceae`, 0),
   )
 
 # Bounding box for cropping
@@ -57,12 +55,8 @@ bb <- st_bbox(countries_utm)
 grid_map_plot <- grid_map_plot %>%
   mutate(
     presence_category = case_when(
-      `Passifloraceae` > 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` > 0 ~"All species present",
-      `Passifloraceae` == 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` > 0 ~ "Both butterflies present and Passifloraceae absent",
-      `Passifloraceae` > 0 & `Acraea andromacha` == 0 & `Acraea terpsicore` > 0 ~ "A. terpsicore and Passifloraceae present",
-      `Passifloraceae` > 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` == 0 ~ "A. andromacha and Passifloraceae present",
-      `Passifloraceae` > 0 & `Acraea andromacha` == 0 & `Acraea terpsicore` == 0 ~"Only Passifloraceae present",
-      TRUE ~ "None of the species present"
+      `Acraea terpsicore` > 0 ~"A. terpsicore present",
+      TRUE ~ "A. terpsicore absent"
     )
   )
 
@@ -81,12 +75,8 @@ species_presence_map <- ggplot() +
   ) +
   scale_fill_manual(
     values = c(
-      "A. terpsicore and Passifloraceae present" = "#CC79A7", #using color blind friendly palette
-      "A. andromacha and Passifloraceae present" = "#F0E442",
-      "Both butterflies present and Passifloraceae absent" = "#D55E00", 
-      "All species present" = "#0072B2",
-      "Only Passifloraceae present" = "#009E73",
-      "None of the species present" = "grey90"
+      "A. terpsicore present" = "#009E73",
+      "A. terpsicore absent" = "grey90"
     ),
     name = "Species present"
   ) +
@@ -105,8 +95,69 @@ species_presence_map <- ggplot() +
   labs(x = NULL, y = NULL)
 
 species_presence_map
-ggsave("output/alloccmap.pdf", species_presence_map, width = 12, height = 6, dpi = 1200)
+ggsave("output/tcoccmap.pdf", species_presence_map, width = 12, height = 6, dpi = 1200)
 
-##### CREATE POLYGON OF FIELDWORK AREA
+##### CREATE CIRCLE POLYGON OF FIELDWORK AREA
 
+## Determine midpoint between Wollongong and Melbourne; Data acquired from LatLong.net
 
+point1 <- c(150.893143, -34.425072) #Wollongong
+point2 <- c(144.946457, -37.840935) #Melbourne
+
+midpoint_coords <- midPoint(point1, point2)
+print(midpoint_coords)
+
+#convert midpoints to sf
+midpoint_sf <- st_sfc(st_point(midpoint_coords), crs = 4326)  
+midpoint_utm <- st_transform(midpoint_sf, crs_proj)
+
+# build grid
+grid <- st_make_grid(
+  st_as_sfc(st_bbox(countries_utm)),
+  cellsize = 25000, # 25 x 25 km grid
+  square = TRUE
+) %>%
+  st_sf(grid_id = seq_along(.))
+
+# Filter grid to Australia
+grid <- grid[lengths(st_intersects(grid, countries_utm)) > 0, ] %>%
+  mutate(grid_id = row_number())
+
+# Bounding box for cropping
+bb <- st_bbox(countries_utm)
+
+blank_map <- ggplot() +
+  geom_sf(
+    data = grid,
+    colour = "white",
+    linewidth = 0.1
+  ) +
+  geom_sf(
+    data = countries_utm,
+    fill = NA,
+    colour = "black",
+    linewidth = 0.5
+  ) +
+  coord_sf(
+    xlim = c(bb["xmin"], bb["xmax"]),
+    ylim = c(bb["ymin"], bb["ymax"]),
+    expand = FALSE
+  ) +
+  theme_classic() +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_blank()
+  ) +
+  labs(x = NULL, y = NULL)
+
+#create circular polygon 
+radius_m <- 420000  # 420 km Wollongong and Melbourne are roughly 860 km from each other
+fieldwork_area <- st_buffer(midpoint_utm, dist = radius_m) 
+
+#overlay onto grid map
+fieldsites <- blank_map +
+  geom_sf(data = fieldwork_area, fill = NA, color = "#009E73", size = 1)
+
+ggsave("output/fieldsites.pdf", fieldsites, width = 12, height = 6, dpi = 1200)
