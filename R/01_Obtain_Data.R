@@ -9,8 +9,7 @@ galah_config(atlas="Australia")
 # galah help
 ?galah
 
-# records for Acraea terpsicore, Acraea Andromacha, and shared host plant species in Australia since 2012 - 2026 grouped by year and basis of record
-## double check using correct terminology
+# records for Acraea terpsicore, Acraea Andromacha, and Passiflora species in Australia since 2012 - 2026 grouped by year and basis of record
 
 search_taxa("Passifloraceae")
 search_taxa("Acraea andromacha")
@@ -25,5 +24,5 @@ occurrence_data<-galah_call() %>%
   ) %>% 
   atlas_occurrences()
 
-write.csv(occurrence_data, file = "AAATpassifloraceae_occ.csv")
+write.csv(occurrence_data, file = "output/allocc.csv")
 

@@ -7,7 +7,7 @@ library(janitor)
 ##############################
 # Cleaning ALA data
 
-ala_data <- data.table::fread("AAATpassifloraceae_occ.csv")
+ala_data <- data.table::fread("output/allocc.csv")
 
 #check column names
 colnames(ala_data)
@@ -36,7 +36,7 @@ ala_data <- ala_data %>%
   )) %>%
   filter(!is.na(group))
 
-write_csv(ala_data, "AAATpassifloraceae_ala.csv")
+write_csv(ala_data, "output/cleaned_allocc.csv")
 
 # Cleaning memory
 rm(ala_data)
@@ -44,7 +44,7 @@ rm(ala_data)
 ##############################
 # Filter data frame
 
-occ_raw <- read_csv("AAATpassifloraceae_ala.csv")
+occ_raw <- read_csv("output/cleaned_allocc.csv")
 
 # Convert to sf + filter to region ; have map include states
 crs_proj <- "EPSG:20353"  # UTM zone 53, metres)
@@ -98,6 +98,4 @@ n_records_species_wide <- n_records_species %>%
   ungroup()
 
 # Export data
-write_csv(n_records_species_wide, "grid_summary_speciesbasedAAATpassifloraceae.csv")
-
-## Citation
+write_csv(n_records_species_wide, "output/gridsummary.csv")

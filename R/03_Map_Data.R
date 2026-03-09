@@ -12,7 +12,7 @@ library(patchwork)
 
 ###### CREATE MAP
 # Load occurence data
-analysis_df <- read_csv("grid_summary_speciesbasedAAATpassifloraceae.csv", show_col_types = FALSE)
+analysis_df <- read_csv("output/gridsummary.csv", show_col_types = FALSE)
 
 ### Use a standard CRS (metres), avoids km/metre confusion
 crs_proj <- 20353  # EPSG:20353 (UTM zone 53, metres)
@@ -40,7 +40,7 @@ grid <- st_make_grid(
 grid <- grid[lengths(st_intersects(grid, countries_utm)) > 0, ] %>%
   mutate(grid_id = row_number())
 
-###### CREATE SIDE BY SIDE HEAT MAPS FOR BOTH SPECIES
+###### MAP WITH ALL SPECIES
 # Presence distribution
 grid_map_plot <- grid %>%
   left_join(analysis_df, by = "grid_id") %>%
@@ -58,10 +58,10 @@ grid_map_plot <- grid_map_plot %>%
   mutate(
     presence_category = case_when(
       `Passifloraceae` > 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` > 0 ~"All species present",
-      `Passifloraceae` == 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` > 0 ~ "both butterflies present and host plant absent",
-      `Passifloraceae` > 0 & `Acraea andromacha` == 0 & `Acraea terpsicore` > 0 ~ "host plant and A. terpsicore present",
-      `Passifloraceae` > 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` == 0 ~ "host plant and A. andromacha present",
-      `Passifloraceae` > 0 & `Acraea andromacha` == 0 & `Acraea terpsicore` == 0 ~"Only host plants present",
+      `Passifloraceae` == 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` > 0 ~ "Both butterflies present and Passifloraceae absent",
+      `Passifloraceae` > 0 & `Acraea andromacha` == 0 & `Acraea terpsicore` > 0 ~ "A. terpsicore and Passifloraceae present",
+      `Passifloraceae` > 0 & `Acraea andromacha` > 0 & `Acraea terpsicore` == 0 ~ "A. andromacha and Passifloraceae present",
+      `Passifloraceae` > 0 & `Acraea andromacha` == 0 & `Acraea terpsicore` == 0 ~"Only Passifloraceae present",
       TRUE ~ "None of the species present"
     )
   )
@@ -81,11 +81,11 @@ species_presence_map <- ggplot() +
   ) +
   scale_fill_manual(
     values = c(
-      "host plant and A. terpsicore present" = "purple",
-      "host plant and A. andromacha present" = "orange",
-      "both butterflies present and host plant absent" = "red", 
-      "All species present" = "blue",
-      "Only host plants present" = "green",
+      "A. terpsicore and Passifloraceae present" = "#CC79A7", #using color blind friendly palette
+      "A. andromacha and Passifloraceae present" = "#F0E442",
+      "Both butterflies present and Passifloraceae absent" = "#D55E00", 
+      "All species present" = "#0072B2",
+      "Only Passifloraceae present" = "#009E73",
       "None of the species present" = "grey90"
     ),
     name = "Species present"
@@ -105,58 +105,8 @@ species_presence_map <- ggplot() +
   labs(x = NULL, y = NULL)
 
 species_presence_map
-ggsave("mainmap.pdf", species_presence_map, width = 12, height = 6, dpi = 1200)
+ggsave("output/alloccmap.pdf", species_presence_map, width = 12, height = 6, dpi = 1200)
 
-# # Plot heatmap
-# # Function to plot heatmap per species
-# plot_species_heatmap <- function(species_col, species_name) {
-#   ggplot() +
-#     geom_sf(data = countries_utm, fill = NA, colour = "grey80", linewidth = 0.2) +
-#     geom_sf(
-#       data = grid_map_plot,
-#       aes(fill = !!sym(species_col)),
-#       colour = "white",
-#       linewidth = 0.1
-#     ) +
-#     scale_fill_viridis_c(
-#       trans = "log10",
-#       na.value = "grey90",
-#       name = paste("Records of", species_name)
-#     ) +
-#     coord_sf(
-#       xlim = c(bb["xmin"], bb["xmax"]),
-#       ylim = c(bb["ymin"], bb["ymax"]),
-#       expand = FALSE
-#     ) +
-#     theme_classic() +
-#     theme(
-#       panel.grid = element_blank(),
-#       axis.text = element_blank(),
-#       axis.ticks = element_blank(),
-#       axis.line = element_blank()
-#     ) +
-#     labs(x = NULL, y = NULL)
-# }
-# 
-# plot_species_heatmap("Passiflora foetida", "Passiflora foetida")
-# 
-# plot_species_heatmap("Acraea terpsicore", "Acraea terpsicore")
-# 
-# plot_species_heatmap("Passiflora edulis","Passiflora edulis")
-# 
-# g_foetida <- plot_species_heatmap("Passiflora foetida", "Passiflora foetida")
-# g_terpsicore <- plot_species_heatmap("Acraea terpsicore", "Acraea terpsicore")
-# g_edulis <- plot_species_heatmap("Passiflora edulis","Passiflora edulis")
-# 
-# combined_vertical_map <- g_foetida + g_terpsicore + g_edulis
-#   plot_layout(ncol = 1, guides = "collect")  # ncol = 1 → vertical, guides = "collect" → shared legend
-# 
-# combined_vertical_map
-# 
-# ggsave(
-#   "combined_species_heatmap_vertical_AT_PF.pdf",
-#   combined_vertical_map,
-#   width = 8,   # adjust width/height as needed
-#   height = 12, 
-#   dpi = 1200
-# )
+##### CREATE POLYGON OF FIELDWORK AREA
+
+
