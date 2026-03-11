@@ -54,6 +54,10 @@ grid_map_plot <- grid %>%
 # Bounding box for cropping
 bb <- st_bbox(countries_utm)
 
+# Find viridis colors I want to use
+viridis_colors <- viridis::viridis(5, option = "D")
+print(viridis_colors)
+
 ###### CREATE ONE MAP OF SPECIES PRESENCE
 grid_map_plot <- grid_map_plot %>%
   mutate(
@@ -82,11 +86,11 @@ species_presence_map <- ggplot() +
   ) +
   scale_fill_manual(
     values = c(
-      "A. terpsicore and Passifloraceae present" = "#CC79A7", #using color blind friendly palette
-      "A. andromacha and Passifloraceae present" = "#F0E442",
-      "Both butterflies present and Passifloraceae absent" = "#D55E00", 
-      "All species present" = "#0072B2",
-      "Only Passifloraceae present" = "#009E73",
+      "A. terpsicore and Passifloraceae present" = "#440154FF", #using viridis color blind friendly palette
+      "A. andromacha and Passifloraceae present" = "#3B528BFF",
+      "Both butterflies present and Passifloraceae absent" = "#21908CFF", 
+      "All species present" = "#5DC863FF",
+      "Only Passifloraceae present" = "#FDE725FF",
       "None of the species present" = "grey90"
     ),
     name = "Species present"
